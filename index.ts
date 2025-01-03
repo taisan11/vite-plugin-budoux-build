@@ -1,8 +1,8 @@
-import type { Plugin } from 'vite';
+import type { PluginOption } from 'vite';
 import {type config,DEFAULT_CONFIG} from './types';
 import {getParser} from "./until"
 
-export default function budouxBuildPlugin(config:config=DEFAULT_CONFIG): Plugin {
+export default function budouxBuildPlugin(config:config=DEFAULT_CONFIG): PluginOption {
     return {
         name: 'vite-plugin-budoux-build',
         transform(code, id) {
