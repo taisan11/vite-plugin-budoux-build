@@ -10,9 +10,11 @@
   },
   "dependencies": {
     "budoux": "^0.6.3",
+    "magic-string": "^0.30.17",
+    "node-html-parser": "^7.0.1",
     "vite": "^6.0.7"
   },
   "scripts": {
-    "publish":"deno publish --unstable-sloppy-imports"
+    "publish": "deno publish --unstable-sloppy-imports"
   }
 }
