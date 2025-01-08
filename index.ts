@@ -7,6 +7,7 @@ import MagicString from 'magic-string';
 export default function budouxBuildPlugin(config:config=DEFAULT_CONFIG): PluginOption {
     return {
         name: 'vite-plugin-budoux-build',
+        enforce:"post",
         transform(code, id) {
             const s = new MagicString(code);
             const parsedHTML = parse(code);
