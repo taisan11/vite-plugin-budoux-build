@@ -1,6 +1,6 @@
 {
     "name": "@taisan11/vite-plugin-budoux-build",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "license": "MIT",
-    "exports": "./index.ts"
+    "exports": ["index.ts","astro.ts"]
 }
