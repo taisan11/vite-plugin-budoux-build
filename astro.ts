@@ -1,52 +1,84 @@
 import type { AstroIntegration } from 'astro';
-import { type config, DEFAULT_CONFIG } from './types';
-import { getParser } from "./until"
-import { parse } from 'node-html-parser';
 import MagicString from 'magic-string';
-import * as fs from 'node:fs/promises';
-import * as path from 'pathe';
+import type { Options } from './types';
+import type { Language } from './utils.ts';
+import { getParser, resolveOptions } from './utils.ts';
+import { parse } from 'node-html-parser';
 
-export default function budouxBuildPlugin(config: config = DEFAULT_CONFIG): AstroIntegration {
+/**
+ * BudouxビルドプラグインをAstro統合として提供します
+ * @param options - 設定オプション
+ * @returns Astro統合オブジェクト
+ */
+export default function budouxAstro(options: Options = {}): AstroIntegration {
   return {
-    name: 'vite-plugin-budoux-build',
+    name: 'budoux-build',
     hooks: {
-      'astro:build:done': async ({ pages,dir,logger }) => {
-        logger.info("Run budoux-build!!");
-        const { language, attribute } = config;
-        const processHTML = async (filePath: string) => {
-          const html = await fs.readFile(filePath, 'utf-8');
-          const s = new MagicString(html);
-          const parsedHTML = parse(html);
-          const elements = parsedHTML.querySelectorAll(`[${attribute}]`);
-          for (const element of elements) {
-            const parser = getParser(language!);
-            element.removeAttribute(attribute!);
-
-            const { range, outerHTML } = element;
-            const [start, end] = range;
-            const parsed = parser.translateHTMLString(outerHTML);
-            s.overwrite(start, end, parsed);
-          }
-          await fs.writeFile(filePath, s.toString(), 'utf-8');
-        };
-        async function fallback(pagePath:string) {
-          await processHTML(pagePath).catch(async (e) => {
-            if (e.code === 'ENOENT') {
-              await processHTML(pagePath.replace(/\.html$/, '/index.html'));
-            } else {
-              throw e;
-            }
-          })
-        }
-        for (const page of pages) {
-            const pagePathhtml = page.pathname === '' ? 'index.html' : page.pathname.replace(/^\//, '').replace(/\/$/, '') + '.html';
-            let pagePath = new URL(pagePathhtml, dir).pathname;
-            pagePath = path.normalize(pagePath);
-            // const path = pagePath.endsWith('/') ? `${pagePath}index.html` : `${pagePath}.html`;
-          await fallback(pagePath);
-        }
-        logger.info("budoux-build done!!");
+      'astro:build:done': async ({ pages }) => {
+        // ビルド完了後の処理
       },
-    },
+      'astro:config:setup': ({ injectRoute, updateConfig }) => {
+        // 設定のセットアップ
+      },
+      'astro:server:setup': ({ server }) => {
+        // サーバーセットアップ
+      },
+      'astro:build:setup': ({ vite, pages, target }) => {
+        const { language, attribute } = resolveOptions(options);
+        
+        // Viteプラグインとして実装
+        vite.plugins = vite.plugins || [];
+        vite.plugins.push({
+          name: 'astro-budoux-build',
+          transform(code, id) {
+            if (!id.endsWith('.astro') || !code.includes(attribute)) {
+              return null;
+            }
+
+            const s = new MagicString(code);
+            try {
+              const dom = parse(code);
+              const elements = dom.querySelectorAll(`[${attribute}]`);
+
+              for (const element of elements) {
+                const attrValue = element.getAttribute(attribute);
+                const parserLanguage: Language = (attrValue as Language) || language as Language;
+                
+                // 言語の検証
+                if (!parserLanguage) {
+                  throw new Error('Invalid language');
+                }
+                
+                const parser = getParser(parserLanguage);
+                
+                const start = code.indexOf(element.outerHTML);
+                if (start === -1) continue;
+                
+                const end = start + element.outerHTML.length;
+                
+                // BudouxでHTMLを処理
+                const parsed = parser.translateHTMLString(element.outerHTML);
+                
+                s.overwrite(start, end, parsed);
+              }
+              
+              if (s.hasChanged()) {
+                return {
+                  code: s.toString(),
+                  map: s.generateMap()
+                };
+              }
+            } catch (error) {
+              console.error('Error processing Budoux:', error);
+            }
+            
+            return null;
+          }
+        });
+      }
+    }
   };
 }
+
+// Svelteプリプロセッサとの互換性のために既存の関数名でもエクスポート
+export { budouxAstro as budouxPreprocess };

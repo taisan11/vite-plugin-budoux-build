@@ -1,12 +1,23 @@
 import * as budoux from 'budoux';
-import {type config,DEFAULT_CONFIG} from './types';
 
+export type Language = 'ja' | 'cs' | 'ct' | 'th'
 export type HTMLProcessingParser = budoux.HTMLProcessingParser;
-export type Language = Exclude<config['language'], null | undefined>;
+
+export function resolveOptions(options: {
+  language?: Language;
+  attribute?: string;
+}) {
+  return {
+    language: options.language ?? 'ja',
+    attribute: options.attribute ?? 'data-budoux'
+  };
+}
 
 const parserCache: Record<string, HTMLProcessingParser> = {};
 
-export function getParser(language: Language): HTMLProcessingParser {
+export function getParser(
+	language: Language,
+): HTMLProcessingParser {
 	switch (language) {
 		case 'ja':
 			return parserCache.ja ??= budoux.loadDefaultJapaneseParser();
@@ -17,6 +28,7 @@ export function getParser(language: Language): HTMLProcessingParser {
 		case 'th':
 			return parserCache.th ??= budoux.loadDefaultThaiParser();
 		default:
-            throw new Error(`Unsupported language: ${language}`);
+			language satisfies never;
+			throw new Error(`Language ${language as string} is not supported`);
 	}
 }

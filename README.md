@@ -1,5 +1,7 @@
 # vite-budoux-build
 
+Based https://github.com/ryoppippi/svelte-preprocess-budoux is MIT License
+
 may be this is ssr on vite or astro only plugin.
 ```ts
 import astro from "vite-budoux-build/astro"
