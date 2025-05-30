@@ -1,32 +1,59 @@
 import type { PluginOption } from 'vite';
-import {type config,DEFAULT_CONFIG} from './types';
-import {getParser} from "./until"
-import {parse} from 'node-html-parser';
 import MagicString from 'magic-string';
-import {createLogger} from "vite"
+import type { Options } from './types';
+import type { Language } from './utils.ts';
+import { getParser, resolveOptions } from './utils.ts';
+import { parse } from 'node-html-parser';
 
-export default function budouxBuildPlugin(config:config=DEFAULT_CONFIG): PluginOption {
-    const logger = createLogger()
+export default function budouxBuildPlugin(options: Options = {}): PluginOption {
+    const { language, attribute } = resolveOptions(options);
     return {
         name: 'vite-plugin-budoux-build',
-        enforce:"post",
-        transformIndexHtml(html, id) {
-            logger.info("Run budoux-build!!");
-            const s = new MagicString(html);
-            const parsedHTML = parse(html);
-            const elements = parsedHTML.querySelectorAll(`[${config.attribute}]`);
-            for (const element of elements) {
-                const attr = element.attributes[config.attribute!];
-                const parser = getParser(config.language!);
-                element.removeAttribute(config.attribute!);
-
-                const { range, innerHTML } = element;
-                const [start, end] = range;
-                const parsed = parser.translateHTMLString(innerHTML);
-                s.overwrite(start, end, parsed);
+        enforce: "post",
+        transform(code, id) {
+            if (!id.endsWith('.astro') || !code.includes(attribute)) {
+                return null;
             }
-            logger.info("budoux-build done!!");
-            return s.toString();
-        },
+
+            const s = new MagicString(code);
+            try {
+                const dom = parse(code);
+                const elements = dom.querySelectorAll(`[${attribute}]`);
+
+                for (const element of elements) {
+                    const attrValue = element.getAttribute(attribute);
+                    const parserLanguage: Language = (attrValue as Language) || language as Language;
+
+                    // 言語の検証
+                    if (!parserLanguage) {
+                        throw new Error('Invalid language');
+                    }
+
+                    const parser = getParser(parserLanguage);
+
+                    const start = code.indexOf(element.outerHTML);
+                    if (start === -1) continue;
+
+                    const end = start + element.outerHTML.length;
+
+                    // BudouxでHTMLを処理
+                    const parsed = parser.translateHTMLString(element.outerHTML);
+
+                    s.overwrite(start, end, parsed);
+                }
+
+                if (s.hasChanged()) {
+                    return {
+                        code: s.toString(),
+                        map: s.generateMap()
+                    };
+                }
+            } catch (error) {
+                console.error('Error processing Budoux:', error);
+            }
+
+            return null;
+        }
+
     };
 }
